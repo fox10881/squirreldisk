@@ -378,5 +378,12 @@
   "{n} could not be removed:": "تعذّرت إزالة {n}:",
   "TOOLS": "الأدوات",
   "Photos, videos and projects copied in more than one place": "صور وفيديوهات ومشاريع منسوخة في أكثر من مكان",
-  "Comparing…": "جارٍ المقارنة…"
+  "Comparing…": "جارٍ المقارنة…",
+  "Export ALL FILES": "تصدير جميع الملفات",
+  "Export ONLY LARGE FILES": "تصدير الملفات الكبيرة فقط",
+  "Share this file with AI for a full analysis of your files.": "قم بمشاركة هذا الملف مع الذكاء الاصطناعي لعمل تحليل كامل لملفاتك",
+  "Hello, my storage is full. Please analyze the attached file list and explain where the space is going. Identify large files/folders and suggest what can be safely deleted to free up space, presenting the information clearly.": "مرحباً، أواجه مشكلة في امتلاء مساحة التخزين في جهازي. يرجى تحليل قائمة الملفات والمجلدات المرفقة وتوضيح أين تذهب المساحة بالتفصيل المبسط. حدد المجلدات والملفات الضخمة، واقترح ما يمكنني حذفه بأمان لتحرير المساحة، مع عرض المعلومات بالطريقة الأنسب والأسهل للفهم.",
+  "Choose where to save the report": "اختر مكان حفظ التقرير",
+  "Report saved": "تم حفظ التقرير",
+  "Could not save the report: {error}": "تعذّر حفظ التقرير: {error}"
 }

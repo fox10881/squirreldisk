@@ -189,6 +189,12 @@ fn tr_logical(key: &'static str) -> &'static str {
     }
 }
 
+/// Translates without the display-time bidi reordering [`tr`] applies:
+/// for text written to files, which must stay in logical order.
+pub fn tr_plain(key: &'static str) -> &'static str {
+    tr_logical(key)
+}
+
 /// Translates an English UI string, in display order (see [`crate::bidi`]).
 pub fn tr(key: &'static str) -> &'static str {
     let s = tr_logical(key);
@@ -325,6 +331,7 @@ mod tests {
                 include_str!("ui/app.rs"),
                 include_str!("sponsor/mod.rs"),
                 include_str!("sponsor/interests.rs"),
+                include_str!("export.rs"),
                 include_str!("i18n.rs"),
             ]
             .join("\n");

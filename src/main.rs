@@ -20,6 +20,8 @@ mod bidi;
 mod disks;
 mod dupes;
 #[cfg(feature = "gui")]
+mod export;
+#[cfg(feature = "gui")]
 mod i18n;
 #[cfg(feature = "gui")]
 mod icon;

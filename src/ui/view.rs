@@ -73,14 +73,19 @@ impl App {
         self.window_drag_area(ui, Rect::from_min_size(screen.min, Vec2::new(screen.width(), bar_h + 4.0)));
         self.top_bar(ui, bar, si);
 
-        let body = Rect::from_min_max(Pos2::new(screen.left(), bar.bottom() + 4.0), screen.max);
+        let custom = self.settings.custom_layout;
+        let mut body_top = bar.bottom() + 4.0;
+        if custom {
+            let strip = Rect::from_min_size(Pos2::new(screen.left() + 20.0, body_top), Vec2::new(screen.width() - 40.0, 46.0));
+            self.export_bar(ui, strip, si);
+            body_top = strip.bottom() + 4.0;
+        }
+        let body = Rect::from_min_max(Pos2::new(screen.left(), body_top), screen.max);
         let panel_w = (body.width() * 0.36).clamp(300.0, 440.0);
         let banner = Rect::from_min_max(Pos2::new(body.right() - panel_w - 16.0, body.bottom() - 16.0 - 52.0), Pos2::new(body.right() - 16.0, body.bottom() - 16.0));
         let panel = Rect::from_min_max(Pos2::new(body.right() - panel_w - 16.0, body.top() + 6.0), Pos2::new(body.right() - 16.0, banner.top() - 10.0));
         let mut chart = Rect::from_min_max(Pos2::new(body.left() + 8.0, body.top()), Pos2::new(panel.left() - 8.0, body.bottom() - 76.0));
         let collector = Rect::from_min_size(Pos2::new(body.left() + 20.0, body.bottom() - 70.0), Vec2::new((chart.width() - 24.0).min(460.0), 54.0));
-
-        let custom = self.settings.custom_layout;
         if custom {
             let depth = Rect::from_min_size(Pos2::new(chart.left() + 12.0, chart.top() + 6.0), Vec2::new((chart.width() - 24.0).min(560.0), 40.0));
             self.depth_bar(ui, depth);
@@ -217,6 +222,39 @@ impl App {
                 let t = self.sessions[si].target.clone();
                 self.start_session(t);
             }
+        }
+    }
+
+    /// Custom layout: the "Export for AI" buttons, and the note under them.
+    fn export_bar(&mut self, ui: &mut Ui, r: Rect, si: usize) {
+        let theme = self.theme.clone();
+        let mut x = r.left();
+        for (label, id, large) in [(tr("Export ALL FILES"), "exp-all", false), (tr("Export ONLY LARGE FILES"), "exp-large", true)] {
+            let w = ui.painter().layout_no_wrap(label.to_string(), bold(12.5), theme.text).size().x + 30.0;
+            let b = Rect::from_min_size(Pos2::new(x, r.top()), Vec2::new(w, 26.0));
+            if widgets::button(ui, b, Id::new((id, si)), label, None, BtnStyle::Subtle, &theme).clicked() {
+                self.export_for_ai(si, large);
+            }
+            x += w + 10.0;
+        }
+        let p = ui.painter();
+        let note = widgets::truncate(p, tr("Share this file with AI for a full analysis of your files."), &font(11.0), r.width() - 4.0);
+        p.text(Pos2::new(r.left() + 2.0, r.top() + 37.0), Align2::LEFT_CENTER, note, font(11.0), theme.text_faint);
+    }
+
+    /// Writes the report through a save dialog (see [`crate::export`]).
+    fn export_for_ai(&mut self, si: usize, large_only: bool) {
+        let text = crate::export::report(&self.sessions[si].tree.read().unwrap(), large_only);
+        let name = if large_only { "squirreldisk-large-files.txt" } else { "squirreldisk-all-files.txt" };
+        let Some(path) = rfd::FileDialog::new().set_title(tr("Choose where to save the report")).set_file_name(name).add_filter("Text", &["txt"]).save_file() else {
+            return;
+        };
+        match std::fs::write(&path, text) {
+            Ok(()) => {
+                self.toasts.push(tr("Report saved").into(), self.theme.ok);
+                self.sfx(Sfx::Blip);
+            }
+            Err(e) => self.toasts.push(trf("Could not save the report: {error}", &[("error", &e)]), self.theme.danger),
         }
     }
 
