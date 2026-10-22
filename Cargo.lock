@@ -2848,7 +2848,7 @@ dependencies = [
 
 [[package]]
 name = "squirreldisk"
-version = "2.6.1"
+version = "2.6.2"
 dependencies = [
  "eframe",
  "egui_glow",
