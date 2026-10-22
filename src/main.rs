@@ -15,6 +15,8 @@ mod settings;
 mod tree;
 
 #[cfg(feature = "gui")]
+mod bidi;
+#[cfg(feature = "gui")]
 mod disks;
 mod dupes;
 #[cfg(feature = "gui")]

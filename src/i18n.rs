@@ -116,6 +116,9 @@ struct Current {
 
 static CURRENT: RwLock<Option<Current>> = RwLock::new(None);
 
+/// Display-order copies of the right-to-left strings handed out by [`tr`].
+static VISUAL: RwLock<Option<HashMap<&'static str, &'static str>>> = RwLock::new(None);
+
 pub fn lang(code: &str) -> &'static Lang {
     LANGS.iter().find(|l| l.code == code).unwrap_or(&LANGS[0])
 }
@@ -179,21 +182,34 @@ pub fn current() -> &'static str {
     CURRENT.read().unwrap().as_ref().map(|c| c.code).unwrap_or("en")
 }
 
-/// Translates an English UI string.
-pub fn tr(key: &'static str) -> &'static str {
+fn tr_logical(key: &'static str) -> &'static str {
     match CURRENT.read().unwrap().as_ref() {
         Some(c) => c.map.get(key).copied().unwrap_or(key),
         None => key,
     }
 }
 
-/// Translates and fills `{name}` placeholders.
+/// Translates an English UI string, in display order (see [`crate::bidi`]).
+pub fn tr(key: &'static str) -> &'static str {
+    let s = tr_logical(key);
+    if !crate::bidi::has_rtl(s) {
+        return s;
+    }
+    if let Some(v) = VISUAL.read().unwrap().as_ref().and_then(|m| m.get(s)) {
+        return v;
+    }
+    let v: &'static str = Box::leak(crate::bidi::visual(s).into_owned().into_boxed_str());
+    VISUAL.write().unwrap().get_or_insert_with(HashMap::new).insert(s, v);
+    v
+}
+
+/// Translates and fills `{name}` placeholders, in display order.
 pub fn trf(key: &'static str, args: &[(&str, &dyn std::fmt::Display)]) -> String {
-    let mut s = tr(key).to_string();
+    let mut s = tr_logical(key).to_string();
     for (name, value) in args {
         s = s.replace(&format!("{{{name}}}"), &value.to_string());
     }
-    s
+    crate::bidi::visual(&s).into_owned()
 }
 
 /// Translates the progress status strings set by the scanners.

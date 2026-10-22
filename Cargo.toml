@@ -10,7 +10,7 @@ repository = "https://github.com/adileo/squirreldisk"
 default = ["gui"]
 # Everything needed for the desktop app. Build with --no-default-features
 # to get the tiny headless agent used on remote servers.
-gui = ["dep:eframe", "dep:egui_glow", "dep:notify", "dep:sysinfo", "dep:rodio", "dep:ureq", "dep:self-replace", "dep:rfd", "dep:tiny-skia", "dep:miniz_oxide", "dep:ring", "dep:skrifa"]
+gui = ["dep:eframe", "dep:egui_glow", "dep:notify", "dep:sysinfo", "dep:rodio", "dep:ureq", "dep:self-replace", "dep:rfd", "dep:tiny-skia", "dep:miniz_oxide", "dep:ring", "dep:skrifa", "dep:unicode-bidi"]
 
 [dependencies]
 eframe = { optional = true, version = "0.36", default-features = false, features = ["glow", "default_fonts", "wayland", "x11"] }
@@ -32,6 +32,7 @@ tiny-skia = { version = "0.12", optional = true, default-features = false, featu
 xxhash-rust = { version = "0.8.19", features = ["xxh3"] }
 md-5 = "0.11.0"
 sha1 = "0.11.0"
+unicode-bidi = { version = "0.3", optional = true }
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3"

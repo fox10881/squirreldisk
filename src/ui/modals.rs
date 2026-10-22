@@ -67,7 +67,7 @@ pub(super) fn close_button(ui: &mut Ui, card: Rect, theme: &Theme) -> bool {
 }
 
 pub(super) fn wrapped(ui: &Ui, pos: Pos2, width: f32, text: &str, f: egui::FontId, color: Color32) -> f32 {
-    let g = ui.painter().layout(text.to_string(), f, color, width);
+    let g = widgets::layout_wrapped(ui.painter(), text, f, color, width);
     let h = g.size().y;
     ui.painter().galley(pos, g, color);
     h
@@ -359,12 +359,13 @@ impl App {
                 }
                 y += 50.0;
 
-                let rows: [(&str, &str, u8); 7] = [
+                let rows: [(&str, &str, u8); 8] = [
                     (tr("Sound effects"), tr("Plops, crunches and a little fanfare"), 0),
                     (tr("Shader effects"), tr("GPU-rendered, anti-aliased segments (turn off on very old GPUs)"), 1),
                     (tr("Watch for changes"), tr("Update the chart when files change on disk"), 2),
                     (tr("Check for updates"), tr("Look for new releases on GitHub at launch"), 3),
                 (tr("Install updates automatically"), tr("Download new versions in the background and apply them on restart"), 6),
+                    (tr("Enable Custom Layout"), tr("Scrollable file list, chart depth on the main view and a chart that follows the zoom"), 7),
                     (tr("Personalized sponsors"), tr("Picked on this computer from disk categories; nothing about you is sent"), 4),
                     (tr("Anonymous sponsor stats"), tr("Daily view totals and click counts, with no ID of any kind"), 5),
                 ];
@@ -381,6 +382,7 @@ impl App {
                         3 => &mut s.auto_update,
                         4 => &mut s.personalized_sponsors,
                     6 => &mut s.auto_install,
+                    7 => &mut s.custom_layout,
                         _ => &mut s.sponsor_measurement,
                     };
                     widgets::toggle(ui, tgl, Id::new(("set-toggle", k)), v, &theme);

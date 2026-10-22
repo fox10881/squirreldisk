@@ -31,7 +31,7 @@ pub fn node_label(t: &Tree, id: u32) -> String {
                 None => tr("Hidden space").to_string(),
             },
         },
-        _ => n.name.to_string(),
+        _ => crate::bidi::visual(&n.name).into_owned(),
     }
 }
 
@@ -77,11 +77,23 @@ impl App {
         let panel_w = (body.width() * 0.36).clamp(300.0, 440.0);
         let banner = Rect::from_min_max(Pos2::new(body.right() - panel_w - 16.0, body.bottom() - 16.0 - 52.0), Pos2::new(body.right() - 16.0, body.bottom() - 16.0));
         let panel = Rect::from_min_max(Pos2::new(body.right() - panel_w - 16.0, body.top() + 6.0), Pos2::new(body.right() - 16.0, banner.top() - 10.0));
-        let chart = Rect::from_min_max(Pos2::new(body.left() + 8.0, body.top()), Pos2::new(panel.left() - 8.0, body.bottom() - 76.0));
+        let mut chart = Rect::from_min_max(Pos2::new(body.left() + 8.0, body.top()), Pos2::new(panel.left() - 8.0, body.bottom() - 76.0));
         let collector = Rect::from_min_size(Pos2::new(body.left() + 20.0, body.bottom() - 70.0), Vec2::new((chart.width() - 24.0).min(460.0), 54.0));
 
+        let custom = self.settings.custom_layout;
+        if custom {
+            let depth = Rect::from_min_size(Pos2::new(chart.left() + 12.0, chart.top() + 6.0), Vec2::new((chart.width() - 24.0).min(560.0), 40.0));
+            self.depth_bar(ui, depth);
+            chart.min.y = depth.bottom() + 4.0;
+        }
         if self.settings.chart_style == "treemap" {
             self.treemap_ui(ui, chart, panel, si);
+        } else if custom {
+            // the zoomed chart may outgrow its area: keep it off the panel
+            let old = ui.clip_rect();
+            ui.set_clip_rect(Rect::from_min_max(Pos2::new(screen.left(), chart.top() - 6.0), Pos2::new(panel.left() - 2.0, screen.bottom())).intersect(old));
+            self.chart_ui(ui, chart, panel, si);
+            ui.set_clip_rect(old);
         } else {
             self.chart_ui(ui, chart, panel, si);
         }
@@ -208,10 +220,31 @@ impl App {
         }
     }
 
+    /// Custom layout: the chart depth control, above the chart.
+    fn depth_bar(&mut self, ui: &mut Ui, r: Rect) {
+        let theme = self.theme.clone();
+        let p = ui.painter();
+        p.text(Pos2::new(r.left(), r.top() + 11.0), Align2::LEFT_CENTER, tr("Chart depth"), bold(13.5), theme.text);
+        let sw = (r.width() * 0.4).clamp(120.0, 200.0);
+        let note = trf("{rings} rings — fewer is faster on old machines", &[("rings", &self.settings.rings)]);
+        let note = widgets::truncate(p, &note, &font(11.5), r.width() - sw - 16.0);
+        p.text(Pos2::new(r.left(), r.top() + 29.0), Align2::LEFT_CENTER, note, font(11.5), theme.text_dim);
+        let sr = Rect::from_min_size(Pos2::new(r.right() - sw, r.top() + 6.0), Vec2::new(sw, 28.0));
+        if widgets::stepper(ui, sr, Id::new("main-rings"), &mut self.settings.rings, 3, 9, &theme).changed() {
+            self.settings.save();
+            self.sfx(Sfx::Blip);
+        }
+    }
+
     fn chart_ui(&mut self, ui: &mut Ui, chart: Rect, panel: Rect, si: usize) {
         let theme = self.theme.clone();
         let rings = self.settings.rings.clamp(3, 9);
-        let radius = (chart.width().min(chart.height()) / 2.0 - 18.0).max(60.0);
+        let mut radius = (chart.width().min(chart.height()) / 2.0 - 18.0).max(60.0);
+        if self.settings.custom_layout {
+            // egui's zoom shrinks the chart area by the same factor, which
+            // kept the chart the same size on screen: undo that
+            radius *= ui.ctx().zoom_factor();
+        }
         let geo = Geometry::new(chart.center(), radius, rings);
         self.sessions[si].geo = Some(geo);
         let dragging_node = self.drag.as_ref().filter(|d| d.session == si).map(|d| d.node);
@@ -567,7 +600,7 @@ impl App {
         let mut note_h = 0.0;
         if t.get(pv.node).kind == Kind::Hidden {
             let text = tr("Space in use on the disk that is not in files the scan could read. It cannot be opened or deleted from here.");
-            let g = p.layout(text.to_string(), font(12.0), theme.text_dim, inner.width());
+            let g = widgets::layout_wrapped(&p, text, font(12.0), theme.text_dim, inner.width());
             note_h = g.size().y + 10.0;
             p.galley(inner.left_top() + Vec2::new(0.0, 56.0), g, theme.text_dim);
         }
@@ -578,8 +611,34 @@ impl App {
         let footer_h = if pv.node == t.root && matches!(s.target, Target::Volume(_)) { 64.0 } else { 26.0 };
         let avail = inner.bottom() - footer_h - top;
         let max_rows = ((avail / row_h).floor() as usize).max(1);
-        let overflow = kids.len() > max_rows;
+        // custom layout: every row, in a scrolling list instead of a "more items" row
+        let custom = self.settings.custom_layout;
+        let overflow = !custom && kids.len() > max_rows;
         let show = if overflow { max_rows - 1 } else { kids.len() };
+        let list = Rect::from_min_max(Pos2::new(inner.left() - 8.0, top), Pos2::new(inner.right() + 8.0, top + avail.max(row_h)));
+        let max_scroll = if custom { (show as f32 * row_h - list.height()).max(0.0) } else { 0.0 };
+        let mut scroll = if custom && s.list_scroll_view == pv { s.list_scroll } else { 0.0 };
+        if max_scroll > 0.0 && ui.rect_contains_pointer(list) {
+            scroll -= ui.input(|i| i.smooth_scroll_delta.y);
+        }
+        let mut scrollbar = None;
+        if max_scroll > 0.0 {
+            let track = Rect::from_min_max(Pos2::new(list.right() + 1.0, list.top() + 2.0), Pos2::new(list.right() + 6.0, list.bottom() - 2.0));
+            let thumb_h = (track.height() * list.height() / (show as f32 * row_h)).max(28.0);
+            let resp = ui.interact(track.expand2(Vec2::new(4.0, 0.0)), Id::new(("list-scroll", si)), Sense::click_and_drag());
+            if resp.dragged() {
+                scroll += resp.drag_delta().y * max_scroll / (track.height() - thumb_h).max(1.0);
+            } else if let (true, Some(p)) = (resp.clicked(), resp.interact_pointer_pos()) {
+                scroll = (p.y - track.top() - thumb_h / 2.0) / (track.height() - thumb_h).max(1.0) * max_scroll;
+            }
+            scroll = scroll.clamp(0.0, max_scroll);
+            let thumb = Rect::from_min_size(Pos2::new(track.left(), track.top() + (track.height() - thumb_h) * scroll / max_scroll), Vec2::new(track.width(), thumb_h));
+            scrollbar = Some((track, thumb, resp.hovered() || resp.dragged()));
+        }
+        let scroll = scroll.clamp(0.0, max_scroll);
+        let first = ((scroll / row_h).floor() as usize).min(show);
+        let last = if custom { (((scroll + list.height()) / row_h).ceil() as usize).min(show) } else { show };
+        let rows_top = top + first as f32 * row_h - scroll;
         struct Row {
             node: u32,
             label: String,
@@ -589,7 +648,7 @@ impl App {
             denied: bool,
             collected: bool,
         }
-        let rows: Vec<Row> = kids[..show]
+        let rows: Vec<Row> = kids[first..last]
             .iter()
             .map(|&c| {
                 let n = t.get(c);
@@ -612,8 +671,12 @@ impl App {
 
         let mut new_hover = None;
         let mut action: Option<(u32, Kind, u8)> = None; // 0 click, 1 double, 2 context
+        let old_clip = ui.clip_rect();
+        if custom {
+            ui.set_clip_rect(list.intersect(old_clip));
+        }
         for (k, r) in rows.iter().enumerate() {
-            let rr = Rect::from_min_size(Pos2::new(inner.left() - 8.0, top + k as f32 * row_h), Vec2::new(inner.width() + 16.0, row_h - 2.0));
+            let rr = Rect::from_min_size(Pos2::new(inner.left() - 8.0, rows_top + k as f32 * row_h), Vec2::new(inner.width() + 16.0, row_h - 2.0));
             let id = Id::new(("row", si, r.node));
             let resp = ui.interact(rr, id, Sense::click_and_drag());
             let hl = resp.hovered() || selected == Some(r.node);
@@ -662,6 +725,13 @@ impl App {
                 action = Some((r.node, r.kind, 2));
             }
         }
+        ui.set_clip_rect(old_clip);
+        if let Some((track, thumb, hot)) = scrollbar {
+            let h = ui.ctx().animate_bool_with_time(Id::new(("list-scroll-h", si)), hot, 0.12);
+            let p = ui.painter();
+            p.rect_filled(track, cr(3.0), with_alpha(theme.stroke, 0.35));
+            p.rect_filled(thumb, cr(3.0), lerp_color(with_alpha(theme.text_faint, 0.8), theme.text_dim, h));
+        }
         if let Some((n, rest, v)) = more {
             let rr = Rect::from_min_size(Pos2::new(inner.left() - 8.0, top + show as f32 * row_h), Vec2::new(inner.width() + 16.0, row_h - 2.0));
             let id = Id::new(("row-more", si));
@@ -703,6 +773,8 @@ impl App {
 
         let s = &mut self.sessions[si];
         s.list_hover = new_hover;
+        s.list_scroll = scroll;
+        s.list_scroll_view = pv;
         if let Some((node, kind, how)) = action {
             match (how, kind) {
                 (2, _) => {

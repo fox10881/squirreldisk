@@ -96,6 +96,8 @@
   "Known only on this device: {interests}  ·  views waiting to be reported: {views}": "معروف على هذا الجهاز فقط: {interests}  ·  مشاهدات بانتظار الإرسال: {views}",
   "Chart depth": "عمق المخطط",
   "{rings} rings — fewer is faster on old machines": "{rings} حلقات — الأقل أسرع على الأجهزة القديمة",
+  "Enable Custom Layout": "تفعيل التخطيط المخصص",
+  "Scrollable file list, chart depth on the main view and a chart that follows the zoom": "قائمة ملفات قابلة للتمرير، وعمق المخطط في الواجهة الرئيسية، ومخطط يتبع التكبير",
   "Checking…": "جارٍ التحقق…",
   "You're up to date": "لديك أحدث إصدار",
   "Version {version} is available": "الإصدار {version} متاح",

@@ -1661,7 +1661,7 @@ fn dupes_preview(ui: &mut Ui, panel: Rect, d: &mut DupesUi, theme: &Theme) {
         widgets::glow(&p, c, 70.0, with_alpha(theme.accent, 0.12));
         widgets::draw_icon(&p, Icon::Copies, Rect::from_center_size(c, Vec2::splat(44.0)), with_alpha(theme.accent, 0.8));
         p.text(c + Vec2::new(0.0, 52.0), Align2::CENTER_CENTER, tr("Pick a file to see it here"), bold(14.0), theme.text);
-        let g = p.layout(tr("Photos, RAW files and videos show a preview. Every copy is listed with where it lives.").to_string(), font(12.0), theme.text_dim, inner.width() - 40.0);
+        let g = widgets::layout_wrapped(&p, tr("Photos, RAW files and videos show a preview. Every copy is listed with where it lives."), font(12.0), theme.text_dim, inner.width() - 40.0);
         let gw = g.size().x;
         p.galley(Pos2::new(c.x - gw / 2.0, c.y + 66.0), g, theme.text_dim);
         return;

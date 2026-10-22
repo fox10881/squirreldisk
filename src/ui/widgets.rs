@@ -358,18 +358,53 @@ pub fn truncate(painter: &Painter, text: &str, font: &FontId, max_w: f32) -> Str
     if w(text) <= max_w {
         return text.to_string();
     }
-    let chars: Vec<char> = text.chars().collect();
+    // right-to-left text (in display order, see `crate::bidi`) starts on the
+    // right, so it loses characters on the left
+    let rtl = crate::bidi::mostly_rtl(text);
+    let plain = if rtl { crate::bidi::flip_shaped(text) } else { text.to_string() };
+    let chars: Vec<char> = plain.chars().collect();
+    let cut = |keep: usize| -> String {
+        if rtl {
+            crate::bidi::flip_shaped(&("\u{2026}".to_string() + &chars[chars.len() - keep..].iter().collect::<String>()))
+        } else {
+            chars[..keep].iter().collect::<String>() + "\u{2026}"
+        }
+    };
     let (mut lo, mut hi) = (0usize, chars.len());
     while lo < hi {
         let mid = (lo + hi).div_ceil(2);
-        let s: String = chars[..mid].iter().collect::<String>() + "\u{2026}";
-        if w(&s) <= max_w {
+        if w(&cut(mid)) <= max_w {
             lo = mid;
         } else {
             hi = mid - 1;
         }
     }
-    chars[..lo].iter().collect::<String>() + "\u{2026}"
+    cut(lo)
+}
+
+/// Lays out `text` wrapped to `width`. Right-to-left text (in display order,
+/// see `crate::bidi`) fills its lines from the right, so its first words end
+/// up on the first line.
+pub fn layout_wrapped(painter: &Painter, text: &str, font: FontId, color: Color32, width: f32) -> std::sync::Arc<egui::Galley> {
+    if !crate::bidi::mostly_rtl(text) {
+        return painter.layout(text.to_string(), font, color, width);
+    }
+    let w = |s: &str| painter.layout_no_wrap(crate::bidi::flip_shaped(s), font.clone(), color).size().x;
+    let mut lines: Vec<String> = Vec::new();
+    for para in crate::bidi::flip_shaped(text).split('\n') {
+        let mut line = String::new();
+        for word in para.split(' ').rev() {
+            let longer = if line.is_empty() { word.to_string() } else { format!("{word} {line}") };
+            if !line.is_empty() && w(&longer) > width {
+                lines.push(std::mem::replace(&mut line, word.to_string()));
+            } else {
+                line = longer;
+            }
+        }
+        lines.push(line);
+    }
+    let shown: Vec<String> = lines.iter().map(|l| crate::bidi::flip_shaped(l)).collect();
+    painter.layout(shown.join("\n"), font, color, f32::INFINITY)
 }
 
 // ---------------------------------------------------------------------------

@@ -72,6 +72,9 @@ pub struct Settings {
     pub folder_menu: bool,
     /// The `squirreldisk` command was set up (or tried) at first launch.
     pub cli_offered: bool,
+    /// Scrollable file list, chart depth on the main view and a chart that
+    /// follows the zoom. Off keeps the original layout.
+    pub custom_layout: bool,
 }
 
 impl Default for Settings {
@@ -95,6 +98,7 @@ impl Default for Settings {
             sponsor_measurement: true,
             folder_menu: false,
             cli_offered: false,
+            custom_layout: true,
         }
     }
 }

@@ -82,6 +82,9 @@ pub struct Session {
     /// scripts found in them (see [`crate::i18n::scripts_of`]).
     pub names_checked: usize,
     pub name_scripts: u32,
+    /// Custom layout: how far the file list is scrolled, and for which view.
+    pub list_scroll: f32,
+    pub list_scroll_view: View,
 }
 
 impl Session {
@@ -98,7 +101,7 @@ impl Session {
         };
         let root = View::node(0);
         Session {
-            title: target.title(),
+            title: crate::bidi::visual(&target.title()).into_owned(),
             target,
             tree: handle.tree,
             progress: handle.progress,
@@ -130,6 +133,8 @@ impl Session {
             free_at: Instant::now() - Duration::from_secs(60),
             names_checked: 0,
             name_scripts: 0,
+            list_scroll: 0.0,
+            list_scroll_view: root,
         }
     }
 
